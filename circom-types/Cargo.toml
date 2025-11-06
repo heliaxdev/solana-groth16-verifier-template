@@ -1,0 +1,64 @@
+[package]
+name = "circom-types"
+version = "0.1.0"
+authors.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["bn254", "full-groth16", "parallel"]
+bn254 = ["dep:ark-bn254", "taceo-ark-serde-compat/bn254"]
+bls12-381 = ["dep:ark-bls12-381", "taceo-ark-serde-compat/bls12-381"]
+zkey = []
+verification-key = []
+proof = []
+r1cs = []
+public-input = []
+witness = []
+groth16 = []
+plonk = []
+full-groth16 = ["zkey", "verification-key", "proof", "r1cs", "public-input", "witness", "groth16"]
+full-plonk = ["zkey", "verification-key", "proof", "r1cs", "public-input", "witness", "plonk"]
+full = ["full-groth16", "full-plonk", "bn254", "bls12-381"]
+bin = ["dep:tracing-subscriber", "dep:clap", "dep:eyre", "bn254", "zkey", "groth16"]
+parallel = ["dep:rayon"]
+
+[[bin]]
+name = "convert-zkey-to-ark"
+path = "src/bin/convert-zkey-to-ark.rs"
+required-features = ["bin"]
+
+[dependencies]
+ark-bls12-381 = { workspace = true, optional = true }
+taceo-ark-serde-compat = { workspace = true }
+ark-bn254 = { workspace = true, optional = true }
+ark-ec = { workspace = true }
+ark-ff = { workspace = true }
+ark-poly = { workspace = true }
+ark-relations = { workspace = true }
+ark-serialize = { workspace = true }
+ark-groth16 = { workspace = true }
+ark-std = { workspace = true }
+byteorder = { workspace = true }
+clap = { workspace = true, features = ["env"], optional = true }
+eyre = { workspace = true, optional = true }
+num-traits = { workspace = true }
+rayon = { workspace = true, optional = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"], optional = true }
+
+[dev-dependencies]
+num-bigint = { workspace = true }
+
+[package.metadata.cargo-all-features]
+skip_feature_sets = [
+    ["full-groth16", "full-plonk"],
+]
+denylist = ["parallel", "bin", "full"]
+max_combination_size = 2
+
