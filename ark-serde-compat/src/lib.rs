@@ -75,10 +75,10 @@ pub trait CanonicalJsonSerialize: Pairing {
 
     /// Serializes a G2 affine point as an array of coordinate strings.
     fn serialize_g2<S: Serializer>(p: &Self::G2Affine, ser: S) -> Result<S::Ok, S::Error>;
-    
+
     /// Serializes a target group (GT) element as an array of coordinate strings.
     fn serialize_gt<S: Serializer>(p: &Self::TargetField, ser: S) -> Result<S::Ok, S::Error>;
-    
+
     /// Serializes a sequence of G1 affine points as an array of coordinate arrays.
     fn serialize_g1_seq<S: Serializer>(p: &[Self::G1Affine], ser: S) -> Result<S::Ok, S::Error>;
 
