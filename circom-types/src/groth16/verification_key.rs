@@ -9,7 +9,7 @@ use crate::traits::CircomArkworksPairingBridge;
 
 /// Represents a verification key in JSON format that was created by circom. Supports de/serialization using [`serde`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct JsonVerificationKey<P: Pairing + CircomArkworksPairingBridge> {
+pub struct VerificationKey<P: Pairing + CircomArkworksPairingBridge> {
     /// The protocol used to generate the proof (always `"groth16"`)
     pub protocol: String,
     /// The number of public inputs
@@ -47,15 +47,15 @@ pub struct JsonVerificationKey<P: Pairing + CircomArkworksPairingBridge> {
     pub ic: Vec<P::G1Affine>,
 }
 
-impl<P: Pairing + CircomArkworksPairingBridge> JsonVerificationKey<P> {
+impl<P: Pairing + CircomArkworksPairingBridge> VerificationKey<P> {
     /// Deserializes a [`JsonVerificationKey`] from a reader.
     pub fn from_reader<R: Read>(r: R) -> Result<Self, serde_json::Error> {
         serde_json::from_reader(r)
     }
 }
 
-impl<P: Pairing + CircomArkworksPairingBridge> From<JsonVerificationKey<P>> for VerifyingKey<P> {
-    fn from(vk: JsonVerificationKey<P>) -> Self {
+impl<P: Pairing + CircomArkworksPairingBridge> From<VerificationKey<P>> for VerifyingKey<P> {
+    fn from(vk: VerificationKey<P>) -> Self {
         VerifyingKey {
             alpha_g1: vk.alpha_1,
             beta_g2: vk.beta_2,
@@ -72,7 +72,7 @@ mod bn254_test {
     use crate::test_utils;
     use ark_bn254::Bn254;
 
-    use crate::{groth16::JsonVerificationKey, tests::groth16_bn254_kats};
+    use crate::{groth16::VerificationKey, tests::groth16_bn254_kats};
     use std::str::FromStr;
 
     #[test]
@@ -80,7 +80,7 @@ mod bn254_test {
         let groth16_bn254_kats = groth16_bn254_kats();
         let vk_string =
             std::fs::read_to_string(groth16_bn254_kats.join("verification_key.json")).unwrap();
-        let vk = serde_json::from_str::<JsonVerificationKey<Bn254>>(&vk_string).unwrap();
+        let vk = serde_json::from_str::<VerificationKey<Bn254>>(&vk_string).unwrap();
         let alpha_1 = test_utils::to_g1_bn254!(
             "16899422092493380665487369855810985762968608626455123789954325961085508316984",
             "11126583514615198837401836505802377658281069969464374246623821884538475740573"
@@ -146,7 +146,7 @@ mod bn254_test {
         assert_eq!(vk.ic, ic);
 
         let ser_vk = serde_json::to_string(&vk).unwrap();
-        let der_vk = serde_json::from_str::<JsonVerificationKey<Bn254>>(&ser_vk).unwrap();
+        let der_vk = serde_json::from_str::<VerificationKey<Bn254>>(&ser_vk).unwrap();
         assert_eq!(der_vk, vk);
     }
 }

@@ -11,11 +11,11 @@ mod zkey;
 mod zkey_to_ark;
 
 #[cfg(feature = "proof")]
-pub use proof::CircomGroth16Proof;
+pub use proof::Groth16Proof;
 #[cfg(feature = "public-input")]
 pub use public_input::PublicInput;
 #[cfg(feature = "verification-key")]
-pub use verification_key::JsonVerificationKey;
+pub use verification_key::VerificationKey;
 #[cfg(feature = "zkey")]
 pub use zkey::ZKey;
 #[cfg(feature = "zkey")]
