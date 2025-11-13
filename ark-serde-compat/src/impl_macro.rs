@@ -15,7 +15,6 @@ macro_rules! impl_json_canonical {
         pub mod $mod {
             use crate::{CanonicalJsonSerialize};
             use serde::{Serializer, de};
-            use ark_ff::QuadExtConfig;
 
             impl CanonicalJsonSerialize for $curve::$curve_impl {
                 fn serialize_g1<S: Serializer>(p: &Self::G1Affine, ser: S) -> Result<S::Ok, S::Error> {
@@ -116,8 +115,6 @@ macro_rules! impl_json_canonical {
                 "This helper forwards to `crate::serialize_g2`."
             )]
             pub fn serialize_g2<F, S: Serializer>(p: &$curve::G2Affine, ser: S) -> Result<S::Ok, S::Error>
-            where
-                F: QuadExtConfig,
             {
                 crate::serialize_g2(p, ser)
             }
