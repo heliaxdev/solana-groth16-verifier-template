@@ -11,7 +11,7 @@ mod zkey;
 mod zkey_to_ark;
 
 #[cfg(feature = "proof")]
-pub use proof::Groth16Proof;
+pub use proof::Proof;
 #[cfg(feature = "public-input")]
 pub use public_input::PublicInput;
 #[cfg(feature = "verification-key")]
