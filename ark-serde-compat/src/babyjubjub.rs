@@ -162,6 +162,41 @@ where
     deserializer.deserialize_seq(BabyJubJubAffineSeqVisitor::<false> { size: None })
 }
 
+/// Deserialize am array of BabyJubJub affine points from an array of coordinate pair arrays.
+///
+/// Each EdwardsAffine point is deserialized from `[x, y]` format. Validates that all points
+/// are on the curve and in the correct subgroup. Returns an error if not exactly `LENGTH` elements
+/// can be deserialized.
+pub fn deserialize_affine_array<'de, const LENGTH: usize, D>(
+    deserializer: D,
+) -> Result<[taceo_ark_babyjubjub::EdwardsAffine; LENGTH], D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    Ok(deserializer
+        .deserialize_seq(BabyJubJubAffineSeqVisitor::<true> { size: Some(LENGTH) })?
+        .try_into()
+        .expect("Works if not an error"))
+}
+
+/// Deserialize am array of BabyJubJub affine points from an array of coordinate pair arrays.
+///
+/// Each EdwardsAffine point is deserialized from `[x, y]` format. **Does not** validate that the
+/// points are on the curve or in the correct subgroup, making it significantly faster but potentially
+/// unsafe. Use only with trusted input. Returns an error if not exactly `LENGTH` elements
+/// can be deserialized.
+pub fn deserialize_affine_array_unchecked<'de, const LENGTH: usize, D>(
+    deserializer: D,
+) -> Result<[taceo_ark_babyjubjub::EdwardsAffine; LENGTH], D::Error>
+where
+    D: de::Deserializer<'de>,
+{
+    Ok(deserializer
+        .deserialize_seq(BabyJubJubAffineSeqVisitor::<false> { size: Some(LENGTH) })?
+        .try_into()
+        .expect("Works if not an error"))
+}
+
 fn affine_from_strings<const CHECK: bool>(
     x: &str,
     y: &str,
