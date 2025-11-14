@@ -79,19 +79,21 @@ pub struct CircomGroth16Material {
 }
 
 pub struct CircomGroth16MaterialBuilder {
+    compress: Compress,
+    validate: Validate,
     fingerprint_zkey: Option<String>,
     fingerprint_graph: Option<String>,
     bbfs: HashMap<String, BlackBoxFunction>,
-    compress: Compress,
 }
 
 impl Default for CircomGroth16MaterialBuilder {
     fn default() -> Self {
         Self {
             compress: Compress::No,
+            validate: Validate::Yes,
             fingerprint_zkey: None,
-            bbfs: HashMap::default(),
             fingerprint_graph: None,
+            bbfs: HashMap::default(),
         }
     }
 }
@@ -99,6 +101,16 @@ impl Default for CircomGroth16MaterialBuilder {
 impl CircomGroth16MaterialBuilder {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn compress(mut self, compress: Compress) -> Self {
+        self.compress = compress;
+        self
+    }
+
+    pub fn validate(mut self, validate: Validate) -> Self {
+        self.validate = validate;
+        self
     }
 
     pub fn fingerprint_zkey(mut self, fingerprint_zkey: String) -> Self {
@@ -246,7 +258,7 @@ impl CircomGroth16MaterialBuilder {
             }
             Validate::No
         } else {
-            Validate::Yes
+            self.validate
         };
 
         let zkey = circom_types::groth16::ArkZkey::deserialize_with_mode(
