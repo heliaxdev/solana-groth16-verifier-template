@@ -72,10 +72,12 @@ impl From<ark_serialize::SerializationError> for ZkeyError {
 /// Provides methods to:
 /// - Generate proofs from structured inputs
 /// - Verify proofs internally immediately after generation
+#[derive(Clone)]
 pub struct CircomGroth16Material {
     zkey: ArkZkey<Bn254>,
     /// The graph for witness extension
-    graph: Graph,
+    /// Arc because underlying Graph doesn't implement `Clone`.
+    graph: Arc<Graph>,
     /// The black-box functions needed for witness extension
     bbfs: HashMap<String, BlackBoxFunction>,
 }
@@ -277,7 +279,7 @@ impl CircomGroth16MaterialBuilder {
         let graph = circom_witness_rs::init_graph(graph_bytes).map_err(ZkeyError::GraphInvalid)?;
         Ok(CircomGroth16Material {
             zkey,
-            graph,
+            graph: Arc::new(graph),
             bbfs: self.bbfs,
         })
     }
