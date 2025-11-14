@@ -6,12 +6,11 @@ use ark_ff::AdditiveGroup as _;
 use ark_ff::Field as _;
 use ark_ff::LegendreSymbol;
 use ark_ff::UniformRand as _;
-use ark_groth16::Proof as ArkProof;
+use ark_groth16::Proof;
 use ark_serialize::CanonicalDeserialize;
 use ark_serialize::Compress;
 use ark_serialize::Validate;
 use circom_types::groth16::ArkZkey;
-use circom_types::groth16::Proof as CircomProof;
 use circom_witness_rs::{BlackBoxFunction, Graph};
 use groth16::CircomReduction;
 use groth16::Groth16;
@@ -310,7 +309,7 @@ impl CircomGroth16Material {
         &self,
         witness: &[ark_bn254::Fr],
         rng: &mut R,
-    ) -> Result<(CircomProof<Bn254>, Vec<ark_babyjubjub::Fq>), Groth16Error> {
+    ) -> Result<(Proof<Bn254>, Vec<ark_babyjubjub::Fq>), Groth16Error> {
         let r = ark_bn254::Fr::rand(rng);
         let s = ark_bn254::Fr::rand(rng);
 
@@ -319,21 +318,21 @@ impl CircomGroth16Material {
             .map_err(Groth16Error::ProofGeneration)?;
 
         let inputs = witness[1..matrices.num_instance_variables].to_vec();
-        Ok((CircomProof::from(proof), inputs))
+        Ok((proof, inputs))
     }
 
     pub fn generate_proof<R: Rng + CryptoRng>(
         &self,
         inputs: &impl ProofInput,
         rng: &mut R,
-    ) -> Result<(CircomProof<Bn254>, Vec<ark_babyjubjub::Fq>), Groth16Error> {
+    ) -> Result<(Proof<Bn254>, Vec<ark_babyjubjub::Fq>), Groth16Error> {
         let witness = self.generate_witness(inputs)?;
         self.generate_proof_from_witness(&witness, rng)
     }
 
     pub fn verify_proof(
         &self,
-        proof: &ArkProof<Bn254>,
+        proof: &Proof<Bn254>,
         public_inputs: &[ark_bn254::Fr],
     ) -> Result<(), Groth16Error> {
         Groth16::verify(&self.zkey.pk.vk, proof, public_inputs)
