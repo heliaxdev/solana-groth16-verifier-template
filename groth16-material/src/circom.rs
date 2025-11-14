@@ -46,11 +46,7 @@ pub enum ZkeyError {
 #[cfg(any(feature = "reqwest", feature = "reqwest-blocking"))]
 impl From<reqwest::Error> for ZkeyError {
     fn from(value: reqwest::Error) -> Self {
-        tracing::warn!("{value:?}");
-        Self::IoError(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            value.to_string(),
-        ))
+        Self::IoError(std::io::Error::new(std::io::ErrorKind::InvalidData, value))
     }
 }
 
@@ -301,17 +297,16 @@ impl CircomGroth16Material {
             &self.graph,
             Some(&self.bbfs),
         )
-        .map_err(|err| {
-            tracing::error!("error during calculate_witness: {err:?}");
-            Groth16Error::WitnessGeneration
-        })?
+        .map_err(Groth16Error::WitnessGeneration)?
         .into_iter()
         .map(|v| ark_bn254::Fr::from(ark_ff::BigInt(v.into_limbs())))
         .collect::<Vec<_>>();
         Ok(witness)
     }
     /// Generates a Groth16 proof from a witness and verifies it.
-    pub fn generate_proof<R: Rng + CryptoRng>(
+    ///
+    /// Doesn't verify the proof internally.
+    pub fn generate_proof_from_witness<R: Rng + CryptoRng>(
         &self,
         witness: &[ark_bn254::Fr],
         rng: &mut R,
@@ -320,16 +315,20 @@ impl CircomGroth16Material {
         let s = ark_bn254::Fr::rand(rng);
 
         let (matrices, pk) = self.zkey.as_inner();
-        let proof =
-            Groth16::prove::<CircomReduction>(pk, r, s, matrices, witness).map_err(|err| {
-                tracing::error!("error during prove: {err:?}");
-                Groth16Error::ProofGeneration
-            })?;
+        let proof = Groth16::prove::<CircomReduction>(pk, r, s, matrices, witness)
+            .map_err(Groth16Error::ProofGeneration)?;
 
         let inputs = witness[1..matrices.num_instance_variables].to_vec();
-        self.verify_proof(&proof, &inputs)?;
-
         Ok((CircomProof::from(proof), inputs))
+    }
+
+    pub fn generate_proof<R: Rng + CryptoRng>(
+        &self,
+        inputs: &impl ProofInput,
+        rng: &mut R,
+    ) -> Result<(CircomProof<Bn254>, Vec<ark_babyjubjub::Fq>), Groth16Error> {
+        let witness = self.generate_witness(inputs)?;
+        self.generate_proof_from_witness(&witness, rng)
     }
 
     pub fn verify_proof(
@@ -337,9 +336,7 @@ impl CircomGroth16Material {
         proof: &ArkProof<Bn254>,
         public_inputs: &[ark_bn254::Fr],
     ) -> Result<(), Groth16Error> {
-        Groth16::verify(&self.zkey.pk.vk, proof, public_inputs).map_err(|err| {
-            tracing::error!("error during verify: {err:?}");
-            Groth16Error::InvalidProof
-        })
+        Groth16::verify(&self.zkey.pk.vk, proof, public_inputs)
+            .map_err(|_| Groth16Error::InvalidProof)
     }
 }

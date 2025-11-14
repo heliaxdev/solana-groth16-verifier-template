@@ -1,19 +1,18 @@
 [package]
 name = "groth16-material"
 version = "0.1.0"
+authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
-authors.workspace = true
 repository.workspace = true
 license.workspace = true
 
-[features]
-default = ["full", "reqwest", "reqwest-blocking"]
-circom = ["dep:ruint", "dep:ark-babyjubjub", "dep:circom-witness-rs", "dep:ark-serialize"]
-noir = []
-reqwest = ["dep:reqwest"]
-reqwest-blocking = ["reqwest/blocking"]
-full = ["circom", "noir"]
+[package.metadata.cargo-all-features]
+skip_feature_sets = [
+  ["circom", "noir"],
+  ["reqwest", "reqwest-blocking"],
+]
+max_combination_size = 2
 
 [dependencies]
 ark-babyjubjub = { workspace = true, optional = true }
@@ -21,18 +20,35 @@ ark-bn254 = { workspace = true }
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
 ark-groth16 = { workspace = true }
-groth16 = { workspace = true }
 ark-relations = { workspace = true }
 ark-serialize = { workspace = true, optional = true }
-circom-types = { workspace = true, features=["groth16", "zkey", "proof", "verification-key", "bn254"]}
+circom-types = { workspace = true, features = [
+  "bn254",
+  "groth16",
+  "proof",
+  "verification-key",
+  "zkey"
+] }
 circom-witness-rs = { workspace = true, optional = true }
 eyre = { workspace = true }
+groth16 = { workspace = true }
 hex = { workspace = true }
-ruint = { workspace = true, optional=true }
 rand = { workspace = true }
+reqwest = { workspace = true, optional = true }
+ruint = { workspace = true, optional = true }
 sha2 = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-reqwest = { workspace = true, optional=true}
 
-
+[features]
+default = ["circom"]
+circom = [
+  "dep:ark-babyjubjub",
+  "dep:ark-serialize",
+  "dep:circom-witness-rs",
+  "dep:ruint"
+]
+full = ["circom", "noir"]
+noir = []
+reqwest = ["dep:reqwest"]
+reqwest-blocking = ["reqwest/blocking"]

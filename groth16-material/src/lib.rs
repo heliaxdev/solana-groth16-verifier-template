@@ -6,10 +6,10 @@ pub mod circom;
 pub enum Groth16Error {
     /// Failed to generate a witness for the circuit.
     #[error("failed to generate witness")]
-    WitnessGeneration,
+    WitnessGeneration(#[source] eyre::Report),
     /// Failed to generate a Groth16 proof.
     #[error("failed to generate proof")]
-    ProofGeneration,
+    ProofGeneration(#[source] eyre::Report),
     /// Generated proof could not be verified against the verification key.
     #[error("proof could not be verified")]
     InvalidProof,
