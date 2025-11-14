@@ -29,11 +29,11 @@ pub mod proof_input;
 #[derive(Debug, thiserror::Error)]
 pub enum ZkeyError {
     /// The SHA-256 fingerprint of the `.zkey` did not match the expected value.
-    #[error("invalid zkey - wrong sha256 fingerprint")]
-    ZKeyFingerprintMismatch,
+    #[error("invalid zkey - wrong sha256 fingerprint: {0}")]
+    ZKeyFingerprintMismatch(String),
     /// The SHA-256 fingerprint of the witness graph did not match the expected value.
-    #[error("invalid graph - wrong sha256 fingerprint")]
-    GraphFingerprintMismatch,
+    #[error("invalid graph - wrong sha256 fingerprint: {0}")]
+    GraphFingerprintMismatch(String),
     /// Could not parse the `.zkey` file.
     #[error("Could not parse zkey - see wrapped error")]
     ZKeyInvalid(#[source] eyre::Report),
@@ -88,7 +88,7 @@ pub struct CircomGroth16MaterialBuilder {
 impl Default for CircomGroth16MaterialBuilder {
     fn default() -> Self {
         Self {
-            compress: Compress::Yes,
+            compress: Compress::No,
             fingerprint_zkey: None,
             bbfs: HashMap::default(),
             fingerprint_graph: None,
@@ -240,9 +240,9 @@ impl CircomGroth16MaterialBuilder {
         graph_bytes: &[u8],
     ) -> Result<CircomGroth16Material, ZkeyError> {
         let validate = if let Some(should_fingerprint) = self.fingerprint_zkey {
-            let is_fingerprint = sha2::Sha256::digest(zkey_bytes);
-            if hex::encode(is_fingerprint) != should_fingerprint {
-                return Err(ZkeyError::ZKeyFingerprintMismatch);
+            let is_fingerprint = hex::encode(sha2::Sha256::digest(zkey_bytes));
+            if is_fingerprint != should_fingerprint {
+                return Err(ZkeyError::ZKeyFingerprintMismatch(is_fingerprint));
             }
             Validate::No
         } else {
@@ -255,9 +255,9 @@ impl CircomGroth16MaterialBuilder {
             validate,
         )?;
         if let Some(should_fingerprint) = self.fingerprint_graph {
-            let is_fingerprint = sha2::Sha256::digest(graph_bytes);
-            if hex::encode(is_fingerprint) != should_fingerprint {
-                return Err(ZkeyError::GraphFingerprintMismatch);
+            let is_fingerprint = hex::encode(sha2::Sha256::digest(graph_bytes));
+            if is_fingerprint != should_fingerprint {
+                return Err(ZkeyError::GraphFingerprintMismatch(is_fingerprint));
             }
         }
         let graph = circom_witness_rs::init_graph(graph_bytes).map_err(ZkeyError::GraphInvalid)?;
