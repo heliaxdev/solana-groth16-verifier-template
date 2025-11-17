@@ -77,7 +77,7 @@ pub struct CircomGroth16Material {
     zkey: ArkZkey<Bn254>,
     /// The graph for witness extension
     /// Arc because underlying Graph doesn't implement `Clone`.
-    graph: Arc<Graph>,
+    graph: Graph,
     /// The black-box functions needed for witness extension
     bbfs: HashMap<String, BlackBoxFunction>,
 }
@@ -279,7 +279,7 @@ impl CircomGroth16MaterialBuilder {
         let graph = circom_witness_rs::init_graph(graph_bytes).map_err(ZkeyError::GraphInvalid)?;
         Ok(CircomGroth16Material {
             zkey,
-            graph: Arc::new(graph),
+            graph,
             bbfs: self.bbfs,
         })
     }

@@ -1,20 +1,16 @@
 [workspace]
-members = [
-    "ark-serde-compat",
-    "circom-types",
-    "groth16-material"
-]
 resolver = "3"
+members = ["ark-serde-compat", "circom-types", "groth16-material"]
 
 [workspace.package]
+authors = ["TACEO <devs@taceo.io>"]
 edition = "2024"
 rust-version = "1.91"
-authors = ["TACEO <devs@taceo.io>"]
 repository = "https://github.com/TaceoLabs/circom-helpers"
 license = "MIT OR Apache-2.0"
 
 [workspace.dependencies]
-ark-babyjubjub = { package="taceo-ark-babyjubjub", version = "0.5" }
+ark-babyjubjub = { package = "taceo-ark-babyjubjub", version = "0.5" }
 ark-bls12-381 = "0.5"
 ark-bn254 = { version = "0.5" }
 ark-ec = { version = "0.5", default-features = false }
@@ -26,7 +22,7 @@ ark-serialize = { version = "0.5", default-features = false }
 ark-std = "0.5"
 byteorder = "1.5"
 circom-types = { path = "circom-types" }
-circom-witness-rs = { version = "0.2.1" }
+circom-witness-rs = { git = "https://github.com/TaceoLabs/circom-witness-rs.git", rev = "ee9a648dcc54048ad9ba3a8ab2c8843f359ff024" }
 clap = { version = "4.4.8", features = ["derive"] }
 eyre = "0.6"
 groth16 = { git = "https://github.com/TaceoLabs/groth16.git" }
@@ -35,25 +31,26 @@ num-bigint = "0.4"
 num-traits = "0.2"
 rand = "0.8"
 rayon = "1.8"
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = [
+  "rustls-tls"
+] }
 ruint = "1.17"
 serde = { version = "1.0" }
 serde_json = "1"
 sha2 = "0.10"
-taceo-ark-serde-compat = { version = "0.2", path = "ark-serde-compat",default-features = false }
+taceo-ark-serde-compat = { path = "ark-serde-compat", version = "0.2", default-features = false }
 thiserror = "2"
 tracing = "0.1"
 tracing-subscriber = "0.3"
-
-
-[profile.profiling]
-inherits = "bench"
-debug = true
-lto = "thin"
 
 # This profile can be used for CI in pull requests.
 [profile.ci-dev]
 inherits = "dev"
 opt-level = 1
-incremental = false
 debug = true
+incremental = false
+
+[profile.profiling]
+inherits = "bench"
+debug = true
+lto = "thin"
