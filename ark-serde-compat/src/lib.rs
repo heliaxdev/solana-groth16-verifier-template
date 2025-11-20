@@ -24,8 +24,8 @@
 //!
 //! #[derive(Serialize, Deserialize)]
 //! struct MyStruct {
-//!     #[serde(serialize_with = "ark_serde_compat::serialize_f")]
-//!     #[serde(deserialize_with = "ark_serde_compat::deserialize_f")]
+//!     #[serde(serialize_with = "taceo_ark_serde_compat::serialize_f")]
+//!     #[serde(deserialize_with = "taceo_ark_serde_compat::deserialize_f")]
 //!     field: Fr,
 //! }
 //! ```
