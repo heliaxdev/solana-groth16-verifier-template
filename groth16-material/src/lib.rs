@@ -1,3 +1,10 @@
+//! Groth16 zk-SNARK proof generation and verification.
+//!
+//! This crate provides functionality for working with R1CS witnesses and Groth16 proofs.
+//!
+//! Currently, it supports circuits defined using Circom.
+#![deny(missing_docs)]
+
 #[cfg(feature = "circom")]
 pub mod circom;
 

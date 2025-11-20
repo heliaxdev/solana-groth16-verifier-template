@@ -17,7 +17,7 @@ use std::ops::Shr;
 use std::sync::Arc;
 use std::{collections::HashMap, path::Path};
 
-use crate::{Groth16Error, circom::proof_input::ProofInput};
+use crate::Groth16Error;
 
 pub use ark_groth16::Proof;
 pub use ark_serialize::Compress;
@@ -25,7 +25,43 @@ pub use ark_serialize::Validate;
 pub use circom_types::groth16::ArkZkey;
 pub use circom_witness_rs::BlackBoxFunction;
 
-pub mod proof_input;
+/// Trait for preparing proof inputs for zk-SNARK circuits.
+///
+/// The `prepare_input` method converts the implementing type into a
+/// `HashMap<String, Vec<U256>>`, which is the expected format for proof inputs for Circom.
+pub trait ProofInput {
+    /// Prepares the input for zk-SNARK proof generation.
+    ///
+    /// Returns a `HashMap<String, Vec<U256>>` representing the input.
+    ///
+    /// # Example
+    /// ```rust
+    /// #use std::collections::HashMap;
+    /// #use ruint::aliases::U256;
+    /// #use taceo_groth16_material::circom::ProofInput;
+    ///
+    /// struct MyInput {
+    ///    a: U256,
+    ///    b: U256,
+    /// }
+    ///
+    /// impl ProofInput for MyInput {
+    ///     fn prepare_input(&self) -> HashMap<String, Vec<U256>> {
+    ///         let mut input = HashMap::new();
+    ///         input.insert("a".to_string(), vec![self.a]);
+    ///         input.insert("b".to_string(), vec![self.b]);
+    ///         input
+    ///     }
+    /// }
+    /// ```
+    fn prepare_input(&self) -> HashMap<String, Vec<U256>>;
+}
+
+impl ProofInput for HashMap<String, Vec<U256>> {
+    fn prepare_input(&self) -> HashMap<String, Vec<U256>> {
+        self.to_owned()
+    }
+}
 
 /// Errors that can occur while loading or parsing a `.zkey` or graph file.
 #[derive(Debug, thiserror::Error)]
@@ -82,6 +118,21 @@ pub struct CircomGroth16Material {
     bbfs: HashMap<String, BlackBoxFunction>,
 }
 
+/// Builder for `CircomGroth16Material`.
+/// Allows configuring options like compression, validation, fingerprints, and black-box functions.
+///
+/// # Example
+///
+/// ```rust,no_run
+/// # use taceo_groth16_material::circom::{CircomGroth16MaterialBuilder, Compress, Validate};
+/// # use std::collections::HashMap;
+///
+/// let material = CircomGroth16MaterialBuilder::new()
+///                  .compress(Compress::No)
+///                  .validate(Validate::Yes)
+///                  .fingerprint_zkey("d1bc8d3ba4afc7e109612cb73acbdddac052c93025aa1f82942edabb7deb82a1".to_owned())
+///                  .build_from_paths("./circuit.zkey", "./circuit.graph");
+/// ```
 pub struct CircomGroth16MaterialBuilder {
     compress: Compress,
     validate: Validate,
@@ -103,35 +154,56 @@ impl Default for CircomGroth16MaterialBuilder {
 }
 
 impl CircomGroth16MaterialBuilder {
+    /// Creates a new `CircomGroth16MaterialBuilder` with default settings.
+    ///
+    /// Defaults:
+    /// - `compress`: `Compress::No`
+    /// - `validate`: `Validate::Yes`
+    /// - `fingerprint_zkey`: No fingerprint verification of the Zkey.
+    /// - `fingerprint_graph`: No fingerprint verification of the graph.
+    /// - `bbfs`: No black-box functions.
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Sets the compression mode for deserializing the `.zkey` file. See [ark_serialize::Compress] for details.
     pub fn compress(mut self, compress: Compress) -> Self {
         self.compress = compress;
         self
     }
 
+    /// Sets the validation mode for deserializing the `.zkey` file. See [ark_serialize::Validate] for details.
     pub fn validate(mut self, validate: Validate) -> Self {
         self.validate = validate;
         self
     }
 
+    /// Sets the expected SHA-256 fingerprint for the `.zkey` file. If provided, the fingerprint will be verified during loading.
     pub fn fingerprint_zkey(mut self, fingerprint_zkey: String) -> Self {
         self.fingerprint_zkey = Some(fingerprint_zkey);
         self
     }
 
+    /// Sets the expected SHA-256 fingerprint for the graph file. If provided, the fingerprint will be verified during loading.
     pub fn fingerprint_graph(mut self, fingerprint_graph: String) -> Self {
         self.fingerprint_graph = Some(fingerprint_graph);
         self
     }
 
+    /// Adds custom black-box functions for witness extension. See [circom_witness_rs::BlackBoxFunction] for details.
     pub fn add_bbfs(mut self, bbfs: HashMap<String, BlackBoxFunction>) -> Self {
         self.bbfs.extend(bbfs);
         self
     }
 
+    /// Adds the standard black-box function `bbf_inv` for field inversion.
+    ///
+    /// The function implements the following Circom logic:
+    /// ```
+    /// function bbf_inv(in) {
+    ///     return in!=0 ? 1/in : 0;
+    /// }
+    /// ```
     pub fn bbf_inv(mut self) -> Self {
         self.bbfs.insert(
             "bbf_inv".to_string(),
@@ -145,6 +217,15 @@ impl CircomGroth16MaterialBuilder {
 
         self
     }
+
+    /// Adds a black-box function `bbf_legendre` for computing the legendre symbol.
+    ///
+    /// The function implements the following Circom logic:
+    /// ```
+    /// function bbf_legendre(in) {
+    ///     return in!=0 ? 1/in : 0;
+    /// }
+    /// ```
     pub fn bbf_legendre(mut self) -> Self {
         self.bbfs.insert(
             "bbf_legendre".to_string(),
@@ -160,6 +241,7 @@ impl CircomGroth16MaterialBuilder {
         self
     }
 
+    /// Adds a black-box function `bbf_sqrt_unchecked` for computing the square root of a field element.
     pub fn bbf_sqrt_unchecked(mut self) -> Self {
         self.bbfs.insert(
             "bbf_sqrt_unchecked".to_string(),
@@ -170,6 +252,18 @@ impl CircomGroth16MaterialBuilder {
         self
     }
 
+    /// Adds a black-box function `bbf_sqrt_input` for selecting between two field elements based on a condition.
+    ///
+    /// The function implements the following Circom logic:
+    /// ```
+    /// function bbf_sqrt_input(l, a, na) {
+    ///   if (l != -1) {
+    ///     return a;
+    ///   } else {
+    ///     return na;
+    ///   }
+    /// }
+    /// ```
     pub fn bbf_sqrt_input(mut self) -> Self {
         self.bbfs.insert(
             "bbf_sqrt_input".to_string(),
@@ -191,6 +285,14 @@ impl CircomGroth16MaterialBuilder {
         self
     }
 
+    /// Adds a black-box function `bbf_num_2_bits_helper`.
+    ///
+    /// The function implements the following Circom logic:
+    /// ```
+    /// function bbf_num_2_bits_helper(in, i) {
+    ///     return (in >> i) & 1;
+    /// }
+    /// ```
     pub fn bbf_num_2_bits_helper(mut self) -> Self {
         self.bbfs.insert(
             "bbf_num_2_bits_helper".to_string(),
@@ -278,6 +380,7 @@ impl CircomGroth16MaterialBuilder {
         self.build_from_bytes(&zkey_bytes, &graph_bytes)
     }
 
+    /// Downloads `.zkey` and graph files from the provided URLs and builds the Groth16 material. Uses the blocking reqwest client.
     #[cfg(feature = "reqwest-blocking")]
     pub fn build_from_urls_blocking(
         self,
@@ -291,6 +394,7 @@ impl CircomGroth16MaterialBuilder {
 }
 
 impl CircomGroth16Material {
+    /// Returns a reference to the underlying [ArkZkey].
     pub fn zkey(&self) -> &ArkZkey<Bn254> {
         &self.zkey
     }
@@ -319,7 +423,7 @@ impl CircomGroth16Material {
         &self,
         witness: &[ark_bn254::Fr],
         rng: &mut R,
-    ) -> Result<(Proof<Bn254>, Vec<ark_babyjubjub::Fq>), Groth16Error> {
+    ) -> Result<(Proof<Bn254>, Vec<ark_bn254::Fr>), Groth16Error> {
         let r = ark_bn254::Fr::rand(rng);
         let s = ark_bn254::Fr::rand(rng);
 
@@ -331,15 +435,19 @@ impl CircomGroth16Material {
         Ok((proof, inputs))
     }
 
+    /// Generates a Groth16 proof from structured inputs.
+    ///
+    /// This internally computes the witness using the provided inputs and then generates the proof.
     pub fn generate_proof<R: Rng + CryptoRng>(
         &self,
         inputs: &impl ProofInput,
         rng: &mut R,
-    ) -> Result<(Proof<Bn254>, Vec<ark_babyjubjub::Fq>), Groth16Error> {
+    ) -> Result<(Proof<Bn254>, Vec<ark_bn254::Fr>), Groth16Error> {
         let witness = self.generate_witness(inputs)?;
         self.generate_proof_from_witness(&witness, rng)
     }
 
+    /// Verifies a Groth16 proof and accompanying public inputs using the verification key.
     pub fn verify_proof(
         &self,
         proof: &Proof<Bn254>,

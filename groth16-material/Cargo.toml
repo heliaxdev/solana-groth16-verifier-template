@@ -16,7 +16,6 @@ skip_feature_sets = [
 max_combination_size = 2
 
 [dependencies]
-ark-babyjubjub = { workspace = true, optional = true }
 ark-bn254 = { workspace = true }
 ark-ec = { workspace = true }
 ark-ff = { workspace = true }
@@ -38,7 +37,6 @@ tracing = { workspace = true }
 [features]
 default = ["circom"]
 circom = [
-  "dep:ark-babyjubjub",
   "dep:ark-serialize",
   "dep:circom-witness-rs",
   "dep:ruint"
