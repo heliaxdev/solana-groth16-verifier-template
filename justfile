@@ -19,6 +19,6 @@ lint: lint-bin
     RUSTDOCFLAGS='-D warnings' cargo all-features doc --workspace -q --no-deps
 
 test:
-    cargo test --all-features
+    cargo test --all-features --all-targets
 
 check-pr: lint test
