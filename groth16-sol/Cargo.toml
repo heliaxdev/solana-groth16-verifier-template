@@ -19,7 +19,7 @@ alloy-primitives = "1"
 ruint = { workspace = true, features = ["ark-ff-05"] }
 
 [dev-dependencies]
-taceo-circom-types = "0.1"
+circom-types.workspace = true
 serde_json.workspace = true
 
 [features]

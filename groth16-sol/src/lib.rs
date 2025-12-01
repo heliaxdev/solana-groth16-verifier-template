@@ -67,7 +67,6 @@ mod template {
     /// Parameters:
     /// - `vk`: The [verifying key](ark_groth16::VerifyingKey) for the BN254 curve.
     /// - `config`: Configuration options for the Solidity verifier contract generation.
-    #[cfg(feature = "template")]
     #[derive(Debug, Clone, Template)]
     #[template(path = "../templates/bn254_verifier.sol", escape = "none")]
     pub struct SolidityVerifierContext {
@@ -81,14 +80,12 @@ mod template {
     ///
     /// Parameters:
     /// - `pragma_version`: The Solidity pragma version to use in the generated contract. Default is "^0.8.0".
-    #[cfg(feature = "template")]
     #[derive(Debug, Clone, PartialEq, Eq, Hash)]
     pub struct SolidityVerifierConfig {
         /// The Solidity pragma version to use in the generated contract. Default is "^0.8.0".
         pub pragma_version: String,
     }
 
-    #[cfg(feature = "template")]
     impl Default for SolidityVerifierConfig {
         fn default() -> Self {
             Self {
@@ -100,7 +97,7 @@ mod template {
     #[cfg(test)]
     mod tests {
         use askama::Template;
-        use taceo_circom_types::groth16::VerificationKey;
+        use circom_types::groth16::VerificationKey;
 
         const TEST_VK_BN254: &str = include_str!("../data/test_verification_key.json");
         const TEST_GNARK_OUTPUT: &str = include_str!("../data/gnark_output.txt");
@@ -194,6 +191,10 @@ fn compress_g2_point(point: &G2Affine) -> (U256, U256) {
 /// Compress a Groth16 proofs by compressing the individual curve points.
 /// This method uses the point compression scheme described in the contract.
 /// See <https://2π.com/23/bn254-compression> for further explanation.
+///
+/// # Panics
+///
+/// This function will panic if the proof contains points that are not on the respective curves.
 pub fn prepare_compressed_proof(proof: &Proof<ark_bn254::Bn254>) -> [U256; 4] {
     let a_compressed = compress_g1_point(&proof.a);
     let (b0_compressed, b1_compressed) = compress_g2_point(&proof.b);
