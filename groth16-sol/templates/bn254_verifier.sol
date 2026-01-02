@@ -25,12 +25,10 @@ contract Verifier {
     uint256 constant PRECOMPILE_MUL = 0x07;
     uint256 constant PRECOMPILE_VERIFY = 0x08;
 
-    // Base field Fp order P and scalar field Fr order R.
-    // For BN254 these are computed as follows:
+    // Scalar field Fr order R.
+    // For BN254, it is computed as follows:
     //     t = 4965661367192848881
-    //     P = 36⋅t⁴ + 36⋅t³ + 24⋅t² + 6⋅t + 1
     //     R = 36⋅t⁴ + 36⋅t³ + 18⋅t² + 6⋅t + 1
-    uint256 constant P = 0x30644e72e131a029b85045b68181585d97816a916871ca8d3c208c16d87cfd47;
     uint256 constant R = 0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001;
 
     // Groth16 alpha point in G1
