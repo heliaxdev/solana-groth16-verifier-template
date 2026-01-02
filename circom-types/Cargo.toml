@@ -19,11 +19,6 @@ denylist = ["parallel", "bin", "full", "bls12-381"]
 always_include_features = ["bn254"]
 max_combination_size = 3
 
-[[bin]]
-name = "convert-zkey-to-ark"
-path = "src/bin/convert-zkey-to-ark.rs"
-required-features = ["bin"]
-
 [dependencies]
 ark-bls12-381 = { workspace = true, optional = true }
 ark-bn254 = { workspace = true, optional = true }
