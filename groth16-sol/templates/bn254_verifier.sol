@@ -1,6 +1,4 @@
 {%- let numPublic = vk.gamma_abc_g1.len() - 1 -%}
-{%- let numCommitments = 0 -%}
-{%- let numWitness = numPublic - numCommitments %}
 // SPDX-License-Identifier: MIT
 
 pragma solidity {{ config.pragma_version }};
@@ -78,7 +76,7 @@ contract Verifier {
     /// @param input The public inputs. These are elements of the scalar field Fr.
     /// @return x The X coordinate of the resulting G1 point.
     /// @return y The Y coordinate of the resulting G1 point.
-    function publicInputMSM(uint256[{{ numWitness }}] calldata input)
+    function publicInputMSM(uint256[{{ numPublic }}] calldata input)
     internal view returns (uint256 x, uint256 y) {
         // Note: The ECMUL precompile does not reject unreduced values, so we check this.
         // Note: Unrolling this loop does not cost much extra in code-size, the bulk of the
@@ -100,7 +98,7 @@ contract Verifier {
             mstore(add(g, 0x20), PUB_{{ loop.index0 }}_Y)
             {% if loop.index0 == 0 -%}
             s :=  calldataload(input)
-            {% elif loop.index0 < numWitness -%}
+            {% elif loop.index0 < numPublic -%}
             s :=  calldataload(add(input, {{ loop.index0 * 0x20}}))
             {% endif -%}
             mstore(add(g, 0x40), s)
@@ -128,7 +126,7 @@ contract Verifier {
     /// Elements must be reduced.
     function verifyProof(
         uint256[8] calldata proof,
-        uint256[{{ numWitness }}] calldata input
+        uint256[{{ numPublic }}] calldata input
     ) public view {
         (uint256 x, uint256 y) = publicInputMSM(input);
 
