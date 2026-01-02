@@ -43,9 +43,7 @@
 #![deny(missing_docs)]
 
 use alloy_primitives::U256;
-use ark_bn254::{Fq, G1Affine, G2Affine};
 use ark_ec::AffineRepr;
-use ark_ff::Field;
 use ark_groth16::Proof;
 
 /// Re-export askama for users of this crate
@@ -116,89 +114,6 @@ mod template {
             assert_eq!(rendered, TEST_GNARK_OUTPUT);
         }
     }
-}
-
-/// Compress a G1 point into a single U256, using the method described in the contract.
-/// See <https://2π.com/23/bn254-compression> for further explanation.
-fn compress_g1_point(point: &G1Affine) -> U256 {
-    match point.xy() {
-        Some((x, y)) => {
-            let x_comp: U256 = x.into();
-            let y_sqr = x.pow([3]) + ark_bn254::Fq::from(3);
-            let y_computed = y_sqr
-                .sqrt()
-                .expect("Point is not on curve, this should not happen");
-            if y == y_computed {
-                x_comp << 1
-            } else {
-                assert_eq!(y, -y_computed);
-                (x_comp << 1) | U256::ONE
-            }
-        }
-        None => U256::ZERO, // Infinity represented as 0
-    }
-}
-
-/// Compress a G2 point into two U256s, using the method described in the contract.
-/// See <https://2π.com/23/bn254-compression> for further explanation.
-fn compress_g2_point(point: &G2Affine) -> (U256, U256) {
-    match point.xy() {
-        Some((x, y)) => {
-            let n3ab = x.c0 * x.c1 * Fq::from(-3);
-            let a_3 = x.c0.pow([3]);
-            let b_3 = x.c1.pow([3]);
-
-            let frac_27_82 = Fq::from(27) * Fq::from(82).inverse().unwrap();
-            let frac_3_82 = Fq::from(3) * Fq::from(82).inverse().unwrap();
-            let y0_pos = (n3ab * x.c1) + a_3 + frac_27_82;
-            let y1_pos = -((n3ab * x.c0) + b_3 + frac_3_82);
-
-            let half = Fq::from(2).inverse().unwrap();
-            let d = ((y0_pos * y0_pos) + (y1_pos * y1_pos))
-                .sqrt()
-                .expect("x is not on curve, this should not happen");
-            let hint = ((y0_pos + d) * half).sqrt().is_none();
-
-            let y2 = ark_bn254::Fq2::new(y0_pos, y1_pos);
-            let y_computed = y2
-                .sqrt()
-                .expect("Point is on curve, this should not happen");
-            if y_computed == y {
-                let b0_comp: U256 = x.c0.into();
-                let b1_comp: U256 = x.c1.into();
-                if hint {
-                    (b0_comp << 2 | U256::ONE << 1, b1_comp)
-                } else {
-                    (b0_comp << 2, b1_comp)
-                }
-            } else {
-                assert_eq!(y, -y_computed);
-                let b0_comp: U256 = x.c0.into();
-                let b1_comp: U256 = x.c1.into();
-                if hint {
-                    (b0_comp << 2 | (U256::ONE << 1) | U256::ONE, b1_comp)
-                } else {
-                    (b0_comp << 2 | U256::ONE, b1_comp)
-                }
-            }
-        }
-        None => (U256::ZERO, U256::ZERO), // Infinity represented as (0, 0)
-    }
-}
-
-/// Compress a Groth16 proofs by compressing the individual curve points.
-/// This method uses the point compression scheme described in the contract.
-/// See <https://2π.com/23/bn254-compression> for further explanation.
-///
-/// # Panics
-///
-/// This function will panic if the proof contains points that are not on the respective curves.
-pub fn prepare_compressed_proof(proof: &Proof<ark_bn254::Bn254>) -> [U256; 4] {
-    let a_compressed = compress_g1_point(&proof.a);
-    let (b0_compressed, b1_compressed) = compress_g2_point(&proof.b);
-    let c_compressed = compress_g1_point(&proof.c);
-
-    [a_compressed, b1_compressed, b0_compressed, c_compressed]
 }
 
 /// Prepare an uncompressed Groth16 proof for verification in the generated contract.

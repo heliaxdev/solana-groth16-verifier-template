@@ -7,7 +7,7 @@ use std::{fs::File, path::PathBuf, process::ExitCode};
 use taceo_groth16_sol::askama::Template;
 use taceo_groth16_sol::{SolidityVerifierConfig, SolidityVerifierContext};
 
-/// Utility tools for creating and interacting with Solidity verifier contracts for BN254 Groth16 proofs. This CLI can extract a Solidity verifier from a verification key (based on the Groth16 implementation in gnark) and generate parameters for calling both the compressed and uncompressed versions of the verifier contract.
+/// Utility tools for creating and interacting with Solidity verifier contracts for BN254 Groth16 proofs. This CLI can extract a Solidity verifier from a verification key (based on the Groth16 implementation in gnark) and generate parameters for calling the verifier contract.
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
 struct Config {
@@ -32,9 +32,6 @@ struct GenerateCallConfig {
     /// Location of the output file. Write to stdout if omitted.
     #[clap(short, long)]
     pub output: Option<PathBuf>,
-    /// If set, will use uncompressed points. Compressed can have lower overall verification gas costs on L2 chains.
-    #[clap(long)]
-    pub uncompressed: bool,
 }
 
 #[derive(Debug, Default, Args)]
@@ -55,7 +52,6 @@ fn generate_call(config: GenerateCallConfig) -> eyre::Result<ExitCode> {
         proof,
         public,
         output,
-        uncompressed,
     } = config;
     let proof: Proof<Bn254> = serde_json::from_reader(File::open(proof)?)?;
     let public_input: PublicInput<ark_bn254::Fr> = serde_json::from_reader(File::open(public)?)?;
@@ -73,19 +69,11 @@ fn generate_call(config: GenerateCallConfig) -> eyre::Result<ExitCode> {
         .collect::<Vec<String>>()
         .join(",");
 
-    let proof = if uncompressed {
-        taceo_groth16_sol::prepare_uncompressed_proof(&proof.into())
-            .into_iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join(",")
-    } else {
-        taceo_groth16_sol::prepare_compressed_proof(&proof.into())
-            .into_iter()
-            .map(|x| x.to_string())
-            .collect::<Vec<String>>()
-            .join(",")
-    };
+    let proof = taceo_groth16_sol::prepare_uncompressed_proof(&proof.into())
+        .into_iter()
+        .map(|x| x.to_string())
+        .collect::<Vec<String>>()
+        .join(",");
     let result = format!("[{proof}],[{pub_ins}]");
     if let Some(output) = output {
         std::fs::write(output, result)?;
