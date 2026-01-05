@@ -42,9 +42,12 @@
 //! ```
 #![deny(missing_docs)]
 
+use std::io::{self, Read};
+
 use alloy_primitives::U256;
 use ark_ec::AffineRepr;
 use ark_groth16::Proof;
+use ark_serialize::CanonicalDeserialize;
 
 /// Re-export askama for users of this crate
 #[cfg(feature = "template")]
@@ -192,4 +195,59 @@ pub fn prepare_uncompressed_proof(proof: &Proof<ark_bn254::Bn254>) -> [U256; 8] 
         cx.into(),
         cy.into(),
     ]
+}
+
+/// Read a [verifying key](ark_groth16::VerifyingKey) in Bellman format.
+pub fn read_bellman_vk<R: Read>(
+    mut reader: R,
+) -> Result<ark_groth16::VerifyingKey<ark_bn254::Bn254>, ark_serialize::SerializationError> {
+    let read_g1 =
+        |reader: &mut R| -> Result<ark_bn254::G1Affine, ark_serialize::SerializationError> {
+            <ark_bn254::G1Affine as CanonicalDeserialize>::deserialize_uncompressed(reader)
+        };
+
+    let read_g2 =
+        |reader: &mut R| -> Result<ark_bn254::G2Affine, ark_serialize::SerializationError> {
+            <ark_bn254::G2Affine as CanonicalDeserialize>::deserialize_uncompressed(reader)
+        };
+
+    let alpha_g1 = read_g1(&mut reader)?;
+    let _beta_g1 = read_g1(&mut reader)?;
+    let beta_g2 = read_g2(&mut reader)?;
+    let gamma_g2 = read_g2(&mut reader)?;
+    let _delta_g1 = read_g1(&mut reader)?;
+    let delta_g2 = read_g2(&mut reader)?;
+
+    let ic_len = {
+        let mut buf = [0u8; 4];
+        reader
+            .read_exact(&mut buf)
+            .map_err(ark_serialize::SerializationError::IoError)?;
+        u32::from_be_bytes(buf)
+    };
+
+    let mut ic = vec![];
+
+    for _ in 0..ic_len {
+        let g1 = read_g1(&mut reader).and_then(|e| {
+            if e == ark_bn254::G1Affine::identity() {
+                Err(ark_serialize::SerializationError::IoError(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "point at infinity",
+                )))
+            } else {
+                Ok(e)
+            }
+        })?;
+
+        ic.push(g1);
+    }
+
+    Ok(ark_groth16::VerifyingKey {
+        alpha_g1,
+        beta_g2,
+        gamma_g2,
+        delta_g2,
+        gamma_abc_g1: ic,
+    })
 }

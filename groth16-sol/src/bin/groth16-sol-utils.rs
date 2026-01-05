@@ -1,9 +1,12 @@
+use std::fmt;
+use std::io::BufReader;
+use std::{fs::File, path::PathBuf, process::ExitCode};
+
 use ark_bn254::Bn254;
 use ark_ff::Zero;
 use circom_types::groth16::{Proof, PublicInput, VerificationKey};
 use clap::{Args, Parser, Subcommand};
 use eyre::Context;
-use std::{fs::File, path::PathBuf, process::ExitCode};
 use taceo_groth16_sol::askama::Template;
 use taceo_groth16_sol::{SolidityVerifierConfig, SolidityVerifierContext};
 
@@ -45,6 +48,9 @@ struct ExtractVerifierConfig {
     /// The pragma version of the Solidity contract.
     #[clap(long, default_value = "^0.8.0")]
     pub pragma_version: String,
+    /// Decode the vk in Bellman format, instead of Circom.
+    #[clap(short, long)]
+    pub bellman: bool,
 }
 
 fn generate_call(config: GenerateCallConfig) -> eyre::Result<ExitCode> {
@@ -88,14 +94,22 @@ fn extract_verifier(config: ExtractVerifierConfig) -> eyre::Result<ExitCode> {
         vk,
         output,
         pragma_version,
+        bellman,
     } = config;
-    let vk =
-        VerificationKey::<Bn254>::from_reader(File::open(vk).context("while opening input file")?)
-            .context("while parsing verification-key")?;
+
+    let vk_file = BufReader::new(File::open(vk).context("while opening input file")?);
+    let vk = if bellman {
+        taceo_groth16_sol::read_bellman_vk(vk_file)
+            .context("while parsing bellman verification-key")?
+    } else {
+        VerificationKey::<Bn254>::from_reader(vk_file)
+            .context("while parsing circom verification-key")?
+            .into()
+    };
 
     let contract = SolidityVerifierContext {
         little_endian: false,
-        vk: vk.into(),
+        vk,
         config: SolidityVerifierConfig { pragma_version },
     };
     let rendered = contract.render().unwrap();
