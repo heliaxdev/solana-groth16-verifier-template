@@ -251,3 +251,40 @@ pub fn read_bellman_vk<R: Read>(
         gamma_abc_g1: ic,
     })
 }
+
+/// Read a [Groth16 proof](ark_groth16::Proof) in Bellman format.
+pub fn read_bellman_proof<R: Read>(
+    mut reader: R,
+) -> Result<ark_groth16::Proof<ark_bn254::Bn254>, ark_serialize::SerializationError> {
+    let read_g1 =
+        |reader: &mut R| -> Result<ark_bn254::G1Affine, ark_serialize::SerializationError> {
+            let point =
+                <ark_bn254::G1Affine as CanonicalDeserialize>::deserialize_compressed(reader)?;
+            if point == ark_bn254::G1Affine::identity() {
+                return Err(ark_serialize::SerializationError::IoError(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "point at infinity",
+                )));
+            }
+            Ok(point)
+        };
+
+    let read_g2 =
+        |reader: &mut R| -> Result<ark_bn254::G2Affine, ark_serialize::SerializationError> {
+            let point =
+                <ark_bn254::G2Affine as CanonicalDeserialize>::deserialize_compressed(reader)?;
+            if point == ark_bn254::G2Affine::identity() {
+                return Err(ark_serialize::SerializationError::IoError(io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    "point at infinity",
+                )));
+            }
+            Ok(point)
+        };
+
+    let a = read_g1(&mut reader)?;
+    let b = read_g2(&mut reader)?;
+    let c = read_g1(&mut reader)?;
+
+    Ok(ark_groth16::Proof { a, b, c })
+}

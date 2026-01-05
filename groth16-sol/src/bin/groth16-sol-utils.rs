@@ -35,6 +35,9 @@ struct GenerateCallConfig {
     /// Location of the output file. Write to stdout if omitted.
     #[clap(short, long)]
     pub output: Option<PathBuf>,
+    /// Decode the proof in Bellman format, instead of Circom.
+    #[clap(short, long)]
+    pub bellman: bool,
 }
 
 #[derive(Debug, Default, Args)]
@@ -58,8 +61,19 @@ fn generate_call(config: GenerateCallConfig) -> eyre::Result<ExitCode> {
         proof,
         public,
         output,
+        bellman,
     } = config;
-    let proof: Proof<Bn254> = serde_json::from_reader(File::open(proof)?)?;
+
+    let proof_file = BufReader::new(File::open(proof).context("while opening input file")?);
+    let proof = if bellman {
+        taceo_groth16_sol::read_bellman_proof(proof_file)
+            .context("while parsing bellman groth16 proof")?
+    } else {
+        let proof: Proof<Bn254> =
+            serde_json::from_reader(proof_file).context("while parsing circom groth16 proof")?;
+        proof.into()
+    };
+
     let public_input: PublicInput<ark_bn254::Fr> = serde_json::from_reader(File::open(public)?)?;
 
     let pub_ins = public_input
@@ -75,7 +89,7 @@ fn generate_call(config: GenerateCallConfig) -> eyre::Result<ExitCode> {
         .collect::<Vec<String>>()
         .join(",");
 
-    let proof = taceo_groth16_sol::prepare_uncompressed_proof(&proof.into())
+    let proof = taceo_groth16_sol::prepare_uncompressed_proof(&proof)
         .into_iter()
         .map(|x| x.to_string())
         .collect::<Vec<String>>()
