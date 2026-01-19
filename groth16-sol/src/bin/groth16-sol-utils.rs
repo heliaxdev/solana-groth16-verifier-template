@@ -94,6 +94,7 @@ fn extract_verifier(config: ExtractVerifierConfig) -> eyre::Result<ExitCode> {
             .context("while parsing verification-key")?;
 
     let contract = SolidityVerifierContext {
+        little_endian: false,
         vk: vk.into(),
         config: SolidityVerifierConfig { pragma_version },
     };

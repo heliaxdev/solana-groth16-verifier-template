@@ -53,10 +53,50 @@ pub use askama;
 pub use template::{SolidityVerifierConfig, SolidityVerifierContext};
 
 #[cfg(feature = "template")]
+pub mod template_filters {
+    //! Filters used by the BN254 Groth16 verifier.
+
+    use ark_serialize::CanonicalSerialize;
+
+    #[allow(missing_docs)]
+    pub fn le_bytes_g1(val: &::ark_bn254::G1Affine, _vals: &dyn ::askama::Values) -> ::askama::Result<String> {
+        let mut buf = [0u8; 64];
+        val.serialize_uncompressed(&mut buf[..]).unwrap();
+        Ok(format!("{buf:?}"))
+    }
+
+    #[allow(missing_docs)]
+    pub fn be_bytes_g1(val: &::ark_bn254::G1Affine, _vals: &dyn ::askama::Values) -> ::askama::Result<String> {
+        let mut buf = [0u8; 64];
+        val.serialize_uncompressed(&mut buf[..]).unwrap();
+        buf[..32].reverse();
+        buf[32..].reverse();
+        Ok(format!("{buf:?}"))
+    }
+
+    #[allow(missing_docs)]
+    pub fn le_bytes_g2(val: &::ark_bn254::G2Affine, _vals: &dyn ::askama::Values) -> ::askama::Result<String> {
+        let mut buf = [0u8; 128];
+        val.serialize_uncompressed(&mut buf[..]).unwrap();
+        Ok(format!("{buf:?}"))
+    }
+
+    #[allow(missing_docs)]
+    pub fn be_bytes_g2(val: &::ark_bn254::G2Affine, _vals: &dyn ::askama::Values) -> ::askama::Result<String> {
+        let mut buf = [0u8; 128];
+        val.serialize_uncompressed(&mut buf[..]).unwrap();
+        buf[..64].reverse();
+        buf[64..].reverse();
+        Ok(format!("{buf:?}"))
+    }
+}
+
+#[cfg(feature = "template")]
 mod template {
-    use ark_ec::AffineRepr;
     use ark_groth16::VerifyingKey;
     use askama::Template;
+
+    use super::template_filters as filters;
 
     /// Context for generating a Solidity verifier contract for BN254 Groth16 proofs.
     /// The context is passed to `askama` for template rendering.
@@ -64,8 +104,10 @@ mod template {
     /// - `vk`: The [verifying key](ark_groth16::VerifyingKey) for the BN254 curve.
     /// - `config`: Configuration options for the Solidity verifier contract generation.
     #[derive(Debug, Clone, Template)]
-    #[template(path = "../templates/bn254_verifier.sol", escape = "none")]
+    #[template(path = "../templates/bn254_verifier.rs", escape = "none")]
     pub struct SolidityVerifierContext {
+        /// asdf
+        pub little_endian: bool,
         /// The Groth16 verifying key
         pub vk: VerifyingKey<ark_bn254::Bn254>,
         /// Configuration options for the Solidity verifier contract generation
@@ -104,6 +146,7 @@ mod template {
             let vk =
                 serde_json::from_str::<VerificationKey<ark_bn254::Bn254>>(TEST_VK_BN254).unwrap();
             let contract = super::SolidityVerifierContext {
+                little_endian: false,
                 vk: vk.into(),
                 config,
             };
