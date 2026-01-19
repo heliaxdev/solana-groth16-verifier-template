@@ -117,7 +117,7 @@ mod groth16 {
     use super::bn254;
 
     // Groth16 pairing check template
-    const PAIRING_CHECK_TEMPLATE: [u8; 768] = {
+    static PAIRING_CHECK_TEMPLATE: [u8; 768] = const {
         let mut i;
         let mut out = [0u8; 768];
 
@@ -220,7 +220,7 @@ mod groth16 {
             );
             syscalls::sol_memcpy_(
                 scratch.add(64),
-                input,
+                input.add({{ 32 * i }}),
                 32,
             );
             g1_scalar_mul(
