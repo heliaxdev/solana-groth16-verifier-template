@@ -59,14 +59,20 @@ pub mod template_filters {
     use ark_serialize::CanonicalSerialize;
 
     #[allow(missing_docs)]
-    pub fn le_bytes_g1(val: &::ark_bn254::G1Affine, _vals: &dyn ::askama::Values) -> ::askama::Result<String> {
+    pub fn le_bytes_g1(
+        val: &::ark_bn254::G1Affine,
+        _vals: &dyn ::askama::Values,
+    ) -> ::askama::Result<String> {
         let mut buf = [0u8; 64];
         val.serialize_uncompressed(&mut buf[..]).unwrap();
         Ok(format!("{buf:?}"))
     }
 
     #[allow(missing_docs)]
-    pub fn be_bytes_g1(val: &::ark_bn254::G1Affine, _vals: &dyn ::askama::Values) -> ::askama::Result<String> {
+    pub fn be_bytes_g1(
+        val: &::ark_bn254::G1Affine,
+        _vals: &dyn ::askama::Values,
+    ) -> ::askama::Result<String> {
         let mut buf = [0u8; 64];
         val.serialize_uncompressed(&mut buf[..]).unwrap();
         buf[..32].reverse();
@@ -75,14 +81,20 @@ pub mod template_filters {
     }
 
     #[allow(missing_docs)]
-    pub fn le_bytes_g2(val: &::ark_bn254::G2Affine, _vals: &dyn ::askama::Values) -> ::askama::Result<String> {
+    pub fn le_bytes_g2(
+        val: &::ark_bn254::G2Affine,
+        _vals: &dyn ::askama::Values,
+    ) -> ::askama::Result<String> {
         let mut buf = [0u8; 128];
         val.serialize_uncompressed(&mut buf[..]).unwrap();
         Ok(format!("{buf:?}"))
     }
 
     #[allow(missing_docs)]
-    pub fn be_bytes_g2(val: &::ark_bn254::G2Affine, _vals: &dyn ::askama::Values) -> ::askama::Result<String> {
+    pub fn be_bytes_g2(
+        val: &::ark_bn254::G2Affine,
+        _vals: &dyn ::askama::Values,
+    ) -> ::askama::Result<String> {
         let mut buf = [0u8; 128];
         val.serialize_uncompressed(&mut buf[..]).unwrap();
         buf[..64].reverse();
