@@ -1,4 +1,4 @@
-{%- let num_public_inputs = vk.gamma_abc_g1.len() -%}
+{%- let num_public_inputs = vk.gamma_abc_g1.len() - 1 -%}
 
 use alloc::alloc::{alloc as allocate, dealloc, Layout};
 use core::mem;
@@ -179,11 +179,17 @@ mod groth16 {
     };
 
     // Public input points
-    {%- for p in vk.gamma_abc_g1 %}
     {%- if little_endian %}
-    static IC_{{ loop.index0 }}: [u8; 64] = {{ p|le_bytes_g1 }};
+    static CONST: [u8; 64] = {{ vk.gamma_abc_g1[0]|le_bytes_g1 }};
     {%- else %}
-    static IC_{{ loop.index0 }}: [u8; 64] = {{ p|be_bytes_g1 }};
+    static CONST: [u8; 64] = {{ vk.gamma_abc_g1[0]|le_bytes_g1 }};
+    {%- endif %}
+
+    {%- for (i, p) in vk.gamma_abc_g1.iter().skip(1).enumerate() %}
+    {%- if little_endian %}
+    static PUB_{{ i }}: [u8; 64] = {{ p|le_bytes_g1 }};
+    {%- else %}
+    static PUB_{{ i }}: [u8; 64] = {{ p|be_bytes_g1 }};
     {%- endif %}
     {%- endfor %}
 
@@ -196,31 +202,26 @@ mod groth16 {
     ) {
         unsafe {
             syscalls::sol_memcpy_(
-                scratch,
-                &IC_0 as *const _ as *const _,
-                64,
-            );
-            syscalls::sol_memcpy_(
-                scratch.add(64),
-                input,
-                32,
-            );
-            g1_scalar_mul(
                 output,
-                scratch,
+                &CONST as *const _ as *const _,
+                64,
             );
         }
 
-        {%- for i in (1..num_public_inputs) %}
+        {%- for i in (0..num_public_inputs) %}
         unsafe {
             syscalls::sol_memcpy_(
                 scratch,
-                &IC_{{ i }} as *const _ as *const _,
+                &PUB_{{ i }} as *const _ as *const _,
                 64,
             );
             syscalls::sol_memcpy_(
                 scratch.add(64),
+                {%- if i > 0 %}
                 input.add({{ 32 * i }}),
+                {%- else %}
+                input,
+                {%- endif %}
                 32,
             );
             g1_scalar_mul(
@@ -242,7 +243,7 @@ mod groth16 {
     }
     {%- endif %}
 
-    fn verify(
+    pub fn verify(
         // [
         //   0..31    -- public input 1
         //   31..63   -- public input 2
@@ -254,14 +255,20 @@ mod groth16 {
         const PROOF_LEN: usize = 256;
         const WITNESS_LEN: usize = 32 * NUM_PUBLIC_INPUTS;
 
-        if pub_witness_and_proof.len() < const { PROOF_LEN + WITNESS_LEN } {
+        if pub_witness_and_proof.len() != const { PROOF_LEN + WITNESS_LEN } {
             unsafe { abort() }
         }
 
         let buf = unsafe { allocate(BUFFER_MEM_LAYOUT) };
 
         {%- if num_public_inputs > 0 %}
-        unsafe { msm(buf, pub_witness_and_proof.as_ptr(), buf.add(64)); }
+        unsafe {
+            msm(
+                buf,
+                pub_witness_and_proof.as_ptr(),
+                buf.add(64),
+            );
+        }
         {%- endif %}
 
         unsafe {
@@ -283,7 +290,11 @@ mod groth16 {
             // copy msm result
             syscalls::sol_memcpy_(
                 buf.add(const { 64 + 576 }),
+                {%- if num_public_inputs > 0 %}
                 buf,
+                {%- else %}
+                &CONST as *const _ as *const _,
+                {%- endif %}
                 64,
             );
         }

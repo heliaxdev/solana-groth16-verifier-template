@@ -310,22 +310,19 @@ mod gnark {
         mut reader: R,
     ) -> Result<VerifyingKey<Bn254>, SerializationError> {
         let alpha_g1 = read_gnark_g1(&mut reader)?;
-
-        // Beta G1 unused in Arkworks VK
         let _beta_g1 = read_gnark_g1(&mut reader)?;
-
         let beta_g2 = read_gnark_g2(&mut reader)?;
         let gamma_g2 = read_gnark_g2(&mut reader)?;
-
-        // Delta G1 unused in Arkworks VK
         let _delta_g1 = read_gnark_g1(&mut reader)?;
-
         let delta_g2 = read_gnark_g2(&mut reader)?;
 
-        // Read number of IC points
         let mut buf_len = [0u8; 4];
         reader.read_exact(&mut buf_len)?;
-        let ic_len = u32::from_be_bytes(buf_len);
+
+        // Subtract one from the linear comb vector to
+        // exclude the gnark commitment point, which
+        // we don't use
+        let ic_len = u32::from_be_bytes(buf_len) - 1;
 
         let mut ic = Vec::with_capacity(ic_len as usize);
         for _ in 0..ic_len {
