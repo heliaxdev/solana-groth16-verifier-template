@@ -288,3 +288,165 @@ pub fn read_bellman_proof<R: Read>(
 
     Ok(ark_groth16::Proof { a, b, c })
 }
+
+pub use gnark::{read_gnark_proof, read_gnark_vk};
+
+mod gnark {
+    use ark_bn254::{Bn254, Fq, Fq2, G1Affine, G2Affine};
+    use ark_ff::PrimeField;
+    use ark_groth16::{Proof, VerifyingKey};
+    use ark_serialize::SerializationError;
+    use std::io::Read;
+
+    // Gnark Flag Constants
+    const M_MASK: u8 = 0b11 << 6;
+    const M_UNCOMPRESSED: u8 = 0b00 << 6;
+    //const M_COMPRESSED_SMALLEST: u8 = 0b10 << 6;
+    const M_COMPRESSED_LARGEST: u8 = 0b11 << 6;
+    const M_COMPRESSED_INFINITY: u8 = 0b01 << 6;
+
+    /// Read a [verifying key](ark_groth16::VerifyingKey) in Gnark format.
+    pub fn read_gnark_vk<R: Read>(
+        mut reader: R,
+    ) -> Result<VerifyingKey<Bn254>, SerializationError> {
+        let alpha_g1 = read_gnark_g1(&mut reader)?;
+
+        // Beta G1 unused in Arkworks VK
+        let _beta_g1 = read_gnark_g1(&mut reader)?;
+
+        let beta_g2 = read_gnark_g2(&mut reader)?;
+        let gamma_g2 = read_gnark_g2(&mut reader)?;
+
+        // Delta G1 unused in Arkworks VK
+        let _delta_g1 = read_gnark_g1(&mut reader)?;
+
+        let delta_g2 = read_gnark_g2(&mut reader)?;
+
+        // Read number of IC points
+        let mut buf_len = [0u8; 4];
+        reader.read_exact(&mut buf_len)?;
+        let ic_len = u32::from_be_bytes(buf_len);
+
+        let mut ic = Vec::with_capacity(ic_len as usize);
+        for _ in 0..ic_len {
+            ic.push(read_gnark_g1(&mut reader)?);
+        }
+
+        Ok(VerifyingKey {
+            alpha_g1,
+            beta_g2,
+            gamma_g2,
+            delta_g2,
+            gamma_abc_g1: ic,
+        })
+    }
+
+    /// Read a [Groth16 proof](ark_groth16::Proof) in Gnark format.
+    pub fn read_gnark_proof<R: Read>(mut reader: R) -> Result<Proof<Bn254>, SerializationError> {
+        let a = read_gnark_g1(&mut reader)?;
+        let b = read_gnark_g2(&mut reader)?;
+        let c = read_gnark_g1(&mut reader)?;
+
+        Ok(Proof { a, b, c })
+    }
+
+    fn read_gnark_g1<R: Read>(mut reader: R) -> Result<G1Affine, SerializationError> {
+        let mut buf = [0u8; 32];
+        reader.read_exact(&mut buf)?;
+
+        // Read metadata from MSB
+        let m_data = buf[0] & M_MASK;
+
+        // Handle Infinity
+        if m_data == M_COMPRESSED_INFINITY {
+            return Ok(G1Affine::identity());
+        }
+
+        // Clear flags to recover the X coordinate bytes
+        buf[0] &= !M_MASK;
+        let x = Fq::from_be_bytes_mod_order(&buf);
+
+        if m_data == M_UNCOMPRESSED {
+            // Read Y coordinate (next 32 bytes)
+            reader.read_exact(&mut buf)?;
+            let y = Fq::from_be_bytes_mod_order(&buf);
+
+            let p = G1Affine::new(x, y);
+
+            // Ensure point is valid
+            if !p.is_on_curve() || !p.is_in_correct_subgroup_assuming_on_curve() {
+                return Err(SerializationError::InvalidData);
+            }
+            Ok(p)
+        } else {
+            // Compressed: Recover Y
+            // m_data determines if we want the lexicographically largest Y
+            let greatest = m_data == M_COMPRESSED_LARGEST;
+
+            // Use unchecked + manual subgroup check for safety
+            let p = G1Affine::get_point_from_x_unchecked(x, greatest)
+                .ok_or(SerializationError::InvalidData)?;
+
+            if !p.is_in_correct_subgroup_assuming_on_curve() {
+                return Err(SerializationError::InvalidData);
+            }
+
+            Ok(p)
+        }
+    }
+
+    fn read_gnark_g2<R: Read>(mut reader: R) -> Result<G2Affine, SerializationError> {
+        let mut buf_a1 = [0u8; 32];
+        let mut buf_a0 = [0u8; 32];
+
+        // Read X.A1 (High part with flags)
+        reader.read_exact(&mut buf_a1)?;
+        let m_data = buf_a1[0] & M_MASK;
+
+        if m_data == M_COMPRESSED_INFINITY {
+            reader.read_exact(&mut buf_a0)?; // Consume the rest
+            return Ok(G2Affine::identity());
+        }
+
+        // Read X.A0
+        reader.read_exact(&mut buf_a0)?;
+
+        // Clear flags
+        buf_a1[0] &= !M_MASK;
+
+        let x_a1 = Fq::from_be_bytes_mod_order(&buf_a1);
+        let x_a0 = Fq::from_be_bytes_mod_order(&buf_a0);
+
+        // Arkworks Fq2 = c0 + u*c1, where c0 is real(A0), c1 is imag(A1)
+        let x = Fq2::new(x_a0, x_a1);
+
+        if m_data == M_UNCOMPRESSED {
+            // Uncompressed: Read Y.A1 | Y.A0
+            reader.read_exact(&mut buf_a1)?;
+            reader.read_exact(&mut buf_a0)?;
+
+            let y_a1 = Fq::from_be_bytes_mod_order(&buf_a1);
+            let y_a0 = Fq::from_be_bytes_mod_order(&buf_a0);
+            let y = Fq2::new(y_a0, y_a1);
+
+            let p = G2Affine::new(x, y);
+
+            if !p.is_on_curve() || !p.is_in_correct_subgroup_assuming_on_curve() {
+                return Err(SerializationError::InvalidData);
+            }
+            Ok(p)
+        } else {
+            // Compressed: Recover Y
+            let greatest = m_data == M_COMPRESSED_LARGEST;
+
+            let p = G2Affine::get_point_from_x_unchecked(x, greatest)
+                .ok_or(SerializationError::InvalidData)?;
+
+            // Crucial for G2: Check subgroup!
+            if !p.is_in_correct_subgroup_assuming_on_curve() {
+                return Err(SerializationError::InvalidData);
+            }
+            Ok(p)
+        }
+    }
+}
